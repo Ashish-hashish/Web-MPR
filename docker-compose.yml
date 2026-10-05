@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # MongoDB Database Service with GeoJSON support
+  mongo:
+    image: mongo:7.0
+    container_name: civic_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - civic-network
+
+  # Express + Node.js Backend Service
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: civic_server
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/civic_grievance_db
+      - JWT_SECRET=super_secret_jwt_key_for_civic_grievance_portal
+      - JWT_EXPIRE=30d
+    volumes:
+      # Persist uploaded grievance photos on the host disk
+      - ./server/uploads:/app/uploads
+    depends_on:
+      - mongo
+    networks:
+      - civic-network
+
+  # React + Vite Frontend Service
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: civic_client
+    restart: always
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:5000
+    depends_on:
+      - server
+    networks:
+      - civic-network
+
+volumes:
+  mongo-data:
+    driver: local
+
+networks:
+  civic-network:
+    driver: bridge
